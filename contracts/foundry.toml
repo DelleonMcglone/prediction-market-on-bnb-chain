@@ -1,0 +1,46 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+cache_path = "cache"
+broadcast = "broadcast"
+
+solc_version = "0.8.26"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+evm_version = "cancun"
+
+# Allow tests/scripts to read from the repo (e.g., deployments/bnbTestnet.json, test fixtures)
+fs_permissions = [
+  { access = "read-write", path = "../deployments" },
+  { access = "read", path = "./test/fixtures" }
+]
+
+[profile.ci]
+# Tighter settings for CI — more fuzz runs, stricter
+fuzz = { runs = 1024 }
+invariant = { runs = 256, depth = 15, fail_on_revert = false }
+verbosity = 3
+
+[profile.default.fuzz]
+runs = 256
+
+[profile.default.invariant]
+runs = 64
+depth = 15
+fail_on_revert = false
+
+[rpc_endpoints]
+bnb_testnet = "${BNB_TESTNET_RPC_URL}"
+
+[etherscan]
+bnb_testnet = { key = "${BSCSCAN_API_KEY}", url = "https://api-testnet.bscscan.com/api", chain = 97 }
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = true
+int_types = "long"

@@ -1,0 +1,28 @@
+{
+  "name": "prediction-market-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo MVP prediction market on BNB testnet — Igbo Labs Case Study #007",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "lint": "pnpm --filter frontend lint",
+    "typecheck": "pnpm --filter frontend typecheck",
+    "test:frontend": "pnpm --filter frontend test",
+    "test:contracts": "cd contracts && forge test",
+    "test": "pnpm test:contracts && pnpm test:frontend",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:fmt": "cd contracts && forge fmt",
+    "contracts:fmt:check": "cd contracts && forge fmt --check",
+    "sync:abis": "tsx scripts/sync-abis.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

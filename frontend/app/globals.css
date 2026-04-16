@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Dark-first palette — tuned in Phase 04 */
+    --bg: 12 12 15;
+    --fg: 240 240 245;
+    --muted: 120 120 130;
+    --accent: 250 180 50;   /* BNB-ish amber, placeholder */
+    --yes: 60 200 130;
+    --no: 230 80 100;
+
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--fg));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
