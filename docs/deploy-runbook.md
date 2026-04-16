@@ -113,30 +113,29 @@ export $(grep -v '^#' .env | xargs)
 
 ### 2.1 Deploy core contracts
 
-**With a Foundry keystore (recommended):**
-```bash
-forge script script/Deploy.s.sol \
-  --rpc-url $BNB_TESTNET_RPC_URL \
-  --account $DEPLOYER_ACCOUNT \
-  --sender $(cast wallet address --account $DEPLOYER_ACCOUNT) \
-  --broadcast \
-  --verify \
-  --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api
-```
-
-You'll be prompted for the keystore password once.
+**Recommended pattern (BscScan-flake-resistant):** deploy without `--verify`, then
+verify in a separate step. BscScan's testnet API is frequently rate-limited or
+returning 5xx. Coupling deploy to verify means a BscScan outage blocks the whole
+phase — decoupling them costs one extra command and is always safe to retry.
 
 **With a raw private key (testnet-only):**
 ```bash
 forge script script/Deploy.s.sol \
   --rpc-url $BNB_TESTNET_RPC_URL \
   --private-key $DEPLOYER_PRIVATE_KEY \
-  --broadcast \
-  --verify \
-  --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api
+  --broadcast
 ```
+
+**With a Foundry keystore:**
+```bash
+forge script script/Deploy.s.sol \
+  --rpc-url $BNB_TESTNET_RPC_URL \
+  --account $DEPLOYER_ACCOUNT \
+  --sender $(cast wallet address --account $DEPLOYER_ACCOUNT) \
+  --broadcast
+```
+
+You'll be prompted for the keystore password once.
 
 Expected output ends with:
 ```
@@ -146,48 +145,42 @@ Transactions saved to: .../broadcast/Deploy.s.sol/97/run-latest.json
 
 And `deployments/bnbTestnet.json` is written with 5 addresses.
 
-### 2.2 If `--verify` fails mid-flight
-
-Don't panic — the contracts are deployed. Verify each one manually:
-
+**Verify contracts after deploy** (run §2.3 first if you want seeded markets first
+— verification order doesn't matter):
 ```bash
-source ../deployments/bnbTestnet.json  # read addresses (or use jq)
-USDC=$(jq -r .mockUSDC       ../deployments/bnbTestnet.json)
-SHARES=$(jq -r .shares       ../deployments/bnbTestnet.json)
-RES=$(jq -r .resolution      ../deployments/bnbTestnet.json)
-FACTORY=$(jq -r .marketFactory ../deployments/bnbTestnet.json)
-DISPENSER=$(jq -r .dispenser ../deployments/bnbTestnet.json)
-
-# Get the deployer address
-DEPLOYER=$(cast wallet address --account $DEPLOYER_ACCOUNT)
-
-forge verify-contract $USDC     src/MockUSDC.sol:MockUSDC \
-  --chain-id 97 --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api --watch
-
-forge verify-contract $SHARES   src/Shares.sol:Shares \
-  --chain-id 97 --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api --watch
-
-forge verify-contract $RES      src/Resolution.sol:Resolution \
-  --constructor-args $(cast abi-encode "constructor(address)" $DEPLOYER) \
-  --chain-id 97 --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api --watch
-
-forge verify-contract $FACTORY  src/MarketFactory.sol:MarketFactory \
-  --constructor-args $(cast abi-encode "constructor(address,address,address,address)" $USDC $SHARES $RES $DEPLOYER) \
-  --chain-id 97 --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api --watch
-
-forge verify-contract $DISPENSER src/Dispenser.sol:Dispenser \
-  --constructor-args $(cast abi-encode "constructor(address,uint256,uint256,address)" $USDC 100000000 10000000000000000 $DEPLOYER) \
-  --chain-id 97 --etherscan-api-key $BSCSCAN_API_KEY \
-  --verifier-url https://api-testnet.bscscan.com/api --watch
+./script/verify-all.sh
 ```
 
-Each one should end with `Contract successfully verified` and a BscScan URL.
+This helper reads `../deployments/bnbTestnet.json`, reconstructs the constructor
+args, and calls `forge verify-contract --watch` for each core contract. Safe to
+re-run — `--watch` polls until verified or already-verified.
 
-**Library linking note:** `Market` uses `LMSRPricing` as an internal library; it's inlined via `via-ir` so no `--libraries` flag is needed. If BscScan complains about library addresses, compile with `forge build --force` and check the artifact's `linkReferences` — should be empty.
+**If BscScan is down:** use Sourcify as a fallback verifier (no API key, public
+source index):
+```bash
+VERIFIER=sourcify ./script/verify-all.sh
+```
+
+Sourcify's record is authoritative enough for most purposes and is independent
+of BscScan's API. You can still re-run with `VERIFIER=bscscan` once BscScan is
+healthy — it won't conflict.
+
+### 2.2 Verification details & fallbacks
+
+`./script/verify-all.sh` handles the common case. A few details if it doesn't
+work first try:
+
+**Rate limiting:** BscScan's testnet API limits to ~5 calls/second. The script
+serializes verification, but if you hit a 429, wait a minute and re-run the script
+— it's idempotent.
+
+**Library linking note:** `Market` uses `LMSRPricing` as an internal library,
+inlined via `via-ir`. No `--libraries` flag is needed. If BscScan complains about
+library addresses, run `forge build --force` and check the artifact's
+`linkReferences` — should be empty.
+
+**Full manual fallback:** if you need to bypass the script entirely, the
+equivalent raw commands are in the script source at `contracts/script/verify-all.sh`.
 
 ### 2.3 Seed the 3 demo markets
 
