@@ -1,22 +1,104 @@
+"use client";
+
+import Link from "next/link";
+import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useMarkets } from "@/hooks/useMarkets";
+import { isDeployed } from "@/lib/contracts";
+
 export default function HomePage() {
+  const { data: marketAddresses, isLoading } = useMarkets();
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="max-w-xl text-center space-y-6">
-        <p className="text-sm uppercase tracking-widest text-muted">
-          Igbo Labs · Case Study № 007
+    <div className="max-w-6xl mx-auto px-6 py-8">
+      <TestnetBanner />
+
+      <section className="my-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
+        <p className="text-sm text-muted mt-1">
+          LMSR-priced binary markets on BNB testnet.
         </p>
-        <h1 className="text-4xl font-semibold">
-          Prediction Market Demo
-        </h1>
-        <p className="text-muted leading-relaxed">
-          An LMSR-backed prediction market on BNB testnet.
-          Scaffold is live &mdash; trading UI lands in Phase 05.
-        </p>
-        <div className="inline-flex items-center gap-2 text-xs font-mono text-muted border border-muted/30 rounded px-3 py-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-          Phase 01 · repo scaffold
+      </section>
+
+      {!isDeployed ? <NotYetDeployed /> : null}
+
+      {isDeployed && isLoading ? <MarketListSkeleton /> : null}
+
+      {isDeployed && !isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {(marketAddresses ?? []).map((addr) => (
+            <Link key={addr} href={`/market/${addr}`}>
+              <Card className="hover:border-white/20 transition-colors cursor-pointer h-full">
+                <CardTitle className="line-clamp-2">Market</CardTitle>
+                <CardDescription className="font-mono text-xs truncate">{addr}</CardDescription>
+                <div className="mt-4 text-xs text-muted">
+                  Phase 05 fills in price, volume, resolution status.
+                </div>
+              </Card>
+            </Link>
+          ))}
+          {(marketAddresses ?? []).length === 0 ? (
+            <Card className="md:col-span-2 lg:col-span-3 text-center py-12">
+              <p className="text-muted text-sm">
+                No markets yet. An operator can create one at <code>/admin</code>.
+              </p>
+            </Card>
+          ) : null}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TestnetBanner() {
+  return (
+    <div className="mt-6 rounded-md border border-accent/30 bg-accent/10 px-4 py-3 text-sm flex items-start gap-3">
+      <Badge variant="warn">Testnet</Badge>
+      <div className="flex-1">
+        <p className="text-fg">
+          This is a BNB testnet demo &mdash; no real money.
+        </p>
+        <p className="text-muted text-xs mt-1">
+          Need test funds? Click &quot;Get test funds&quot; in the trade UI (Phase 06
+          wires this up) or use the{" "}
+          <a
+            href="https://faucet.quicknode.com/binance-smart-chain/bnb-testnet"
+            target="_blank"
+            rel="noreferrer"
+            className="text-accent underline"
+          >
+            QuickNode faucet
+          </a>
+          .
+        </p>
       </div>
-    </main>
+    </div>
+  );
+}
+
+function NotYetDeployed() {
+  return (
+    <Card className="border-dashed">
+      <CardTitle>Not yet deployed</CardTitle>
+      <CardDescription>
+        Contracts land on BNB testnet in Phase 03. Markets will appear here
+        automatically once the deployment artifact is committed.
+      </CardDescription>
+    </Card>
+  );
+}
+
+function MarketListSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {[0, 1, 2].map((i) => (
+        <Card key={i} className="space-y-3">
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-10 w-full mt-4" />
+        </Card>
+      ))}
+    </div>
   );
 }
