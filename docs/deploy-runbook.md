@@ -32,11 +32,24 @@ Create a fresh account, export the private key, fund it. You'll pass the key via
 
 ### 0.2 Fund the wallet with tBNB
 
-Public BNB testnet faucet: https://www.bnbchain.org/en/testnet-faucet
+**Required:** at least **0.05 tBNB** to cover deploy + seed + 0.01 tBNB for the Dispenser.
 
-Paste your address, solve the captcha, wait ~30 seconds. You should receive 0.3–0.5 tBNB.
+**Recommended faucet — QuickNode:** https://faucet.quicknode.com/binance-smart-chain/bnb-testnet
+- No mainnet balance required, no signup — just wallet-connect.
+- Drops **0.05 tBNB per claim**, 12h cooldown per network.
 
-**Required:** at least **0.05 tBNB** to cover deploy + seed + dispenser funding. Request more if the faucet gives you less.
+**If QuickNode is down or rate-limited, fallbacks (in preference order):**
+- Chainlink: https://faucets.chain.link/bnb-chain-testnet
+- Chainstack: https://faucet.chainstack.com/bnb-testnet-faucet
+- Bitbond: https://tokentool.bitbond.com/faucet/bsc-testnet (requires email signup, drops 0.01 tBNB/24h — slower)
+
+**Avoid the official faucet** at `bnbchain.org/testnet-faucet` — it requires **≥0.002 BNB on mainnet** as an anti-sybil check, which we don't want to deal with.
+
+After claiming, verify:
+```bash
+cast balance <YOUR_ADDRESS> --rpc-url https://data-seed-prebsc-1-s1.binance.org:8545
+# Should print a balance ≥ 50000000000000000 (0.05 ether)
+```
 
 ### 0.3 Get a BscScan API key
 

@@ -243,7 +243,7 @@ One-shot MockUSDC + tBNB drip for fresh visitor wallets.
 |-------|-------|
 | `usdc` | MockUSDC address |
 | `usdcDripAmount` | `100 * 1e6` (100 USDC) |
-| `bnbDripAmount` | `0.01 ether` |
+| `bnbDripAmount` | `0.001 ether` (1 mBNB) |
 
 ### Interface
 

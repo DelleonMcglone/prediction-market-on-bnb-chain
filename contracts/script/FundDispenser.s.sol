@@ -7,8 +7,10 @@ import { Dispenser } from "src/Dispenser.sol";
 /// @notice Send tBNB to the deployed Dispenser so it can drip gas to fresh visitors.
 ///         (MockUSDC is minted on-demand inside Dispenser.drip, no funding needed for it.)
 contract FundDispenser is Script {
-    /// Total tBNB to send to the dispenser. Roughly funds 100 drips at 0.01 tBNB each.
-    uint256 internal constant BNB_TO_SEND = 1 ether;
+    /// Total tBNB to send to the dispenser. At the 0.001 tBNB per-visitor drip,
+    /// this funds ~10 first-time drips — plenty for a demo. Re-run the script if
+    /// you ever need to top it up.
+    uint256 internal constant BNB_TO_SEND = 0.01 ether;
 
     function run() external {
         string memory file = string.concat("../deployments/", _chainName(block.chainid), ".json");

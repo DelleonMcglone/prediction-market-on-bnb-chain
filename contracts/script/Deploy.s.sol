@@ -15,7 +15,10 @@ import { Dispenser } from "src/Dispenser.sol";
 contract Deploy is Script {
     // Drip defaults.
     uint256 internal constant USDC_DRIP = 100 * 1e6;
-    uint256 internal constant BNB_DRIP = 0.01 ether;
+    // 1 mBNB per visitor — enough for ~10 testnet transactions at BSC gas prices.
+    // Kept small because testnet faucets are stingy and we want the Dispenser
+    // to stay topped up across many demo visitors without constant refills.
+    uint256 internal constant BNB_DRIP = 0.001 ether;
 
     struct Deployment {
         MockUSDC usdc;
