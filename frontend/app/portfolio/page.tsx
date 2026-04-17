@@ -67,7 +67,7 @@ export default function PortfolioPage() {
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">Portfolio</h1>
           <p className="text-sm text-muted mt-1">
-            Open positions with unrealized value. Claim flow lands in Phase 06.
+            Your open positions with unrealized value, and resolved positions ready to claim.
           </p>
         </header>
 

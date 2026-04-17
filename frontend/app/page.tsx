@@ -83,10 +83,10 @@ function TestnetBanner({ onGetFunds }: { onGetFunds: () => void }) {
 function NotYetDeployed() {
   return (
     <Card className="border-dashed">
-      <CardTitle>Not yet deployed</CardTitle>
+      <CardTitle>Contracts not yet deployed</CardTitle>
       <CardDescription>
-        Contracts land on BNB testnet in Phase 03. Markets will appear here
-        automatically once the deployment artifact is committed.
+        The core contracts haven&apos;t been deployed to BNB testnet yet. Markets will appear
+        here automatically once deployment addresses are committed to the repo.
       </CardDescription>
     </Card>
   );
