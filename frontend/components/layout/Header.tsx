@@ -1,14 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
-import { useIsOperator } from "@/hooks/useIsOperator";
+import { usePathname } from "next/navigation";
 import { ConnectButton } from "@/components/ConnectButton";
 import { cn } from "@/lib/cn";
 
+/**
+ * All four nav links are always visible. Each destination handles its own
+ * access / connection state in-page (Portfolio shows a "Connect a wallet"
+ * card when disconnected, Admin shows "Not authorized" for non-operators,
+ * etc.) so the nav itself never leaves a broken click.
+ */
+const NAV_LINKS = [
+  { href: "/", label: "Markets" },
+  { href: "/portfolio", label: "Portfolio" },
+  { href: "/admin", label: "Admin" },
+  { href: "/about", label: "About" },
+] as const;
+
 export function Header() {
-  const { address, isConnected } = useAccount();
-  const { data: isOperator } = useIsOperator(address);
+  const pathname = usePathname();
 
   return (
     <header className="border-b border-white/10">
@@ -18,10 +29,14 @@ export function Header() {
         </Link>
 
         <nav className="flex items-center gap-5 text-sm">
-          <NavLink href="/">Markets</NavLink>
-          {isConnected ? <NavLink href="/portfolio">Portfolio</NavLink> : null}
-          {isOperator ? <NavLink href="/admin">Admin</NavLink> : null}
-          <NavLink href="/about">About</NavLink>
+          {NAV_LINKS.map((link) => {
+            const active = isActive(pathname, link.href);
+            return (
+              <NavLink key={link.href} href={link.href} active={active}>
+                {link.label}
+              </NavLink>
+            );
+          })}
           <ConnectButton />
         </nav>
       </div>
@@ -29,11 +44,32 @@ export function Header() {
   );
 }
 
-function NavLink({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) {
+function isActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+function NavLink({
+  href,
+  children,
+  active,
+  className,
+}: {
+  href: string;
+  children: React.ReactNode;
+  active?: boolean;
+  className?: string;
+}) {
   return (
     <Link
       href={href}
-      className={cn("text-muted hover:text-fg transition-colors", className)}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "transition-colors",
+        active ? "text-fg font-medium" : "text-muted hover:text-fg",
+        className,
+      )}
     >
       {children}
     </Link>
