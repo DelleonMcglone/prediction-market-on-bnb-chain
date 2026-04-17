@@ -1,11 +1,13 @@
 # Prediction Market Demo — BNB Chain
 
-An LMSR-backed prediction market demo deployed to BNB Chain testnet. Accompanies **Igbo Labs Case Study № 007**.
+An LMSR-backed prediction market demo. Accompanies **Igbo Labs Case Study № 007**.
 
-> **Status:** frontend complete · contracts deployed to Anvil-verified · awaiting BNB testnet deploy for a live URL and verified BscScan addresses.
+> **Two supported modes:**
+> - **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=1`) — standalone, no wallet, no chain, no gas. Backed by an in-browser mock chain that mirrors the real contracts. **This is the mode the live URL runs.**
+> - **Testnet mode** (`NEXT_PUBLIC_DEMO_MODE=0`) — same UI, wired to real BNB testnet contracts via wagmi + Reown AppKit. Requires operator deploy + a funded wallet.
 
-**Live demo:** _TBD — populated after the Phase 03 testnet deploy._
-**Contract addresses:** _TBD — see [`deployments/bnbTestnet.json`](deployments/)._
+**Live demo:** _TBD — any Vercel deploy with `NEXT_PUBLIC_DEMO_MODE=1` works._
+**Testnet contracts:** _optional; see [`docs/deploy-runbook.md`](docs/deploy-runbook.md) if a client wants real on-chain._
 
 ---
 
@@ -26,28 +28,42 @@ Full spec: [`docs/001-demo-mvp-prediction-market.md`](docs/001-demo-mvp-predicti
 - **Chain:** BNB testnet (chain ID 97)
 - **Toolchain:** pnpm workspaces, Vitest, `forge test` (unit / invariant / fuzz / E2E)
 
-## Getting started
+## Getting started (demo mode)
 
-Requires Node ≥ 20, pnpm ≥ 10, Foundry ≥ 1.0.
+The fastest path — no Foundry, no wallet, no deploy. Requires Node ≥ 20 and pnpm ≥ 10.
 
 ```bash
-# Clone and install
 pnpm install
 
-# Install Foundry libs (first time only)
-cd contracts && forge install --no-git && cd ..
+# Point the frontend at the in-browser mock chain
+echo "NEXT_PUBLIC_DEMO_MODE=1" > frontend/.env.local
+echo "NEXT_PUBLIC_REOWN_PROJECT_ID=ci-placeholder" >> frontend/.env.local
 
-# Build contracts + generate frontend ABIs
-pnpm contracts:build && pnpm sync:abis
-
-# Run every test suite
-pnpm test
-
-# Start the frontend dev server
 pnpm dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000). Out of the box the UI is pointed at BNB testnet; for a local development loop against an Anvil fork see [Local development against Anvil](#local-development-against-anvil) below.
+Open [http://localhost:3000](http://localhost:3000). You're pre-connected as a demo visitor with $1,000 mUSDC and operator rights — trade any market, create new ones from `/admin`, submit and finalize outcomes (dispute window is accelerated to 10s).
+
+## Deploying to Vercel (demo mode)
+
+1. Push to GitHub, import in Vercel.
+2. Set one environment variable: `NEXT_PUBLIC_DEMO_MODE=1`.
+3. Set the build command to `pnpm --filter frontend build` and the install command to `pnpm install` at the repo root.
+4. Deploy. Every preview URL is a working demo — share as-is with prospects.
+
+## Getting started (testnet mode)
+
+For clients who want to see real on-chain behavior. Also requires Foundry ≥ 1.0.
+
+```bash
+pnpm install
+cd contracts && forge install --no-git && cd ..
+pnpm contracts:build && pnpm sync:abis
+pnpm test
+pnpm dev
+```
+
+Out of the box the UI is pointed at BNB testnet; for a local development loop against an Anvil fork see [Local development against Anvil](#local-development-against-anvil) below.
 
 ## Scripts
 
@@ -80,6 +96,17 @@ docs/            Spec, architecture, task docs, runbooks
 scripts/         Repo-level automation (abi sync, anvil dev chain)
 .github/         CI workflows
 ```
+
+## How demo mode works
+
+A single env var flips every contract hook between wagmi/viem and an in-browser mock:
+
+- [`frontend/lib/mockChain.ts`](frontend/lib/mockChain.ts) — JS reimplementation of the contracts' behavior, state persisted to localStorage. Mirrors `MockUSDC`, `Shares`, `Market`, `MarketFactory`, `Resolution`, and `Dispenser` closely enough that the UI doesn't know the difference.
+- [`frontend/hooks/`](frontend/hooks/) — every read/write hook branches on `DEMO_MODE` at the top and routes to `mockChain` when on. Components stay agnostic.
+- [`frontend/hooks/useDemoAccount.ts`](frontend/hooks/useDemoAccount.ts) — drop-in replacement for `useAccount()` that auto-connects a deterministic demo wallet.
+- Dispute window accelerated to 10 seconds so the full market lifecycle (propose → wait → finalize → claim) is demonstrable in one sitting.
+
+The mock chain is tested against the same analytic LMSR fixtures as the Solidity contracts (`lib/mockChain.test.ts`).
 
 ## Local development against Anvil
 

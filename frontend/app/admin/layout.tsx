@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import { NetworkGuard } from "@/components/NetworkGuard";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";

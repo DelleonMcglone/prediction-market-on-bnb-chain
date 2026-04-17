@@ -3,6 +3,9 @@
 import { useReadContracts } from "wagmi";
 import type { Address } from "viem";
 import { MarketAbi } from "@/lib/abis";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockMarketData } from "@/lib/mockChain";
+import { useMockChainVersion } from "./useMockChain";
 
 export type MarketData = {
   address: Address;
@@ -20,11 +23,13 @@ export type MarketData = {
 };
 
 /**
- * Batch-read the state of a single market. Polls every 10s by default.
- * Empty address short-circuits to undefined.
+ * Batch-read the state of a single market. In demo mode, pulls from the local
+ * mock store. Otherwise, uses multicall against the deployed Market contract.
  */
 export function useMarketData(address: Address | undefined) {
-  return useReadContracts({
+  const version = useMockChainVersion();
+
+  const wagmiQuery = useReadContracts({
     allowFailure: false,
     contracts: address
       ? [
@@ -42,7 +47,7 @@ export function useMarketData(address: Address | undefined) {
         ]
       : [],
     query: {
-      enabled: !!address,
+      enabled: !DEMO_MODE && !!address,
       refetchInterval: 10_000,
       staleTime: 5_000,
       select: (data): MarketData | undefined => {
@@ -89,4 +94,12 @@ export function useMarketData(address: Address | undefined) {
       },
     },
   });
+
+  if (DEMO_MODE) {
+    void version;
+    const data = address ? (mockMarketData(address) as MarketData | undefined) : undefined;
+    return { data, isLoading: false, error: null };
+  }
+
+  return wagmiQuery;
 }

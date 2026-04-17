@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAccount } from "wagmi";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";

@@ -7,6 +7,9 @@ import { parseAbiItem, type Address, type Log } from "viem";
 import { useMarketData } from "./useMarketData";
 import { lmsrPrice } from "@/lib/lmsr";
 import { deployedBlock } from "@/lib/contracts";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockMarket, mockTrades, type MockTrade } from "@/lib/mockChain";
+import { useMockChainVersion } from "./useMockChain";
 
 const BOUGHT_EVENT = parseAbiItem(
   "event Bought(address indexed trader, uint8 outcome, uint256 shareAmount, uint256 cost, uint256 fee)",
@@ -16,11 +19,8 @@ const SOLD_EVENT = parseAbiItem(
 );
 
 export type HistoryPoint = {
-  /** Unix timestamp, seconds. */
   t: number;
-  /** YES price, float in [0, 1]. */
   priceYes: number;
-  /** Block number, used as a stable key. */
   block: bigint;
 };
 
@@ -37,29 +37,24 @@ export type TradeRecord = {
 };
 
 /**
- * Reads Bought/Sold events for a market, reconstructs LMSR quantities over
- * time, and returns both the raw trade list and a price-vs-time series
- * suitable for recharts. Caches via TanStack Query per market address.
+ * Reads Bought/Sold events for a market and reconstructs a price-over-time
+ * series. In demo mode, replays the mock chain's recorded trades.
  */
 export function useMarketHistory(market: Address | undefined) {
   const client = usePublicClient();
   const { data: marketData } = useMarketData(market);
+  const version = useMockChainVersion();
 
-  const b = marketData?.question !== undefined ? 100n * 10n ** 18n : undefined;
-  // b is a constant in our demo (100e18), but we only compute history once we
-  // have market metadata loaded so the hook doesn't fire on every mount.
-
-  return useQuery({
+  const wagmiQuery = useQuery({
     queryKey: ["market-history", market],
-    enabled: !!client && !!market && !!b,
+    enabled: !DEMO_MODE && !!client && !!market && !!marketData,
     staleTime: 15_000,
     refetchInterval: 15_000,
     queryFn: async () => {
-      if (!client || !market || !b) return { history: [], trades: [] };
+      if (!client || !market || !marketData) return { history: [], trades: [] };
 
-      // Pull both event types. `getContractEvents` with fromBlock=0n is fine on
-      // a low-traffic market; for production we'd pin fromBlock to the
-      // deployment block recorded in deployments/.
+      const b = 100n * 10n ** 18n;
+
       const [boughtLogs, soldLogs] = await Promise.all([
         client.getLogs({
           address: market,
@@ -76,9 +71,6 @@ export function useMarketHistory(market: Address | undefined) {
       ]);
 
       const all = [...boughtLogs, ...soldLogs].sort(byBlockThenLog);
-
-      // Reconstruct per-step quantities and prices. Block timestamps are
-      // fetched in parallel (one call per unique block).
       const uniqBlocks = Array.from(new Set(all.map((l) => l.blockNumber ?? 0n)));
       const blockTimestamps = new Map<bigint, number>();
       await Promise.all(
@@ -90,10 +82,7 @@ export function useMarketHistory(market: Address | undefined) {
 
       let qNo = 0n;
       let qYes = 0n;
-      const history: HistoryPoint[] = [
-        // Seed with the neutral starting price so the chart has a baseline.
-        { t: 0, priceYes: 0.5, block: 0n },
-      ];
+      const history: HistoryPoint[] = [{ t: 0, priceYes: 0.5, block: 0n }];
       const trades: TradeRecord[] = [];
 
       for (const log of all) {
@@ -122,7 +111,6 @@ export function useMarketHistory(market: Address | undefined) {
           timestamp: t,
         });
 
-        // Give the seed point a real timestamp once we see the first event.
         if (history.length === 2 && history[0].t === 0) {
           history[0] = { ...history[0], t };
         }
@@ -132,6 +120,58 @@ export function useMarketHistory(market: Address | undefined) {
     },
     select: (data) => data ?? { history: [], trades: [] },
   });
+
+  if (DEMO_MODE) {
+    void version;
+    return {
+      data: buildDemoHistory(market),
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  return wagmiQuery;
+}
+
+function buildDemoHistory(market: Address | undefined): { history: HistoryPoint[]; trades: TradeRecord[] } {
+  if (!market) return { history: [], trades: [] };
+  const m = mockMarket(market);
+  if (!m) return { history: [], trades: [] };
+  const rawTrades = mockTrades(market);
+  const b = m.b;
+
+  let qNo = 0n;
+  let qYes = 0n;
+  const history: HistoryPoint[] = [{
+    t: rawTrades[0]?.timestamp ?? Math.floor(Date.now() / 1000),
+    priceYes: 0.5,
+    block: 0n,
+  }];
+  const trades: TradeRecord[] = [];
+
+  for (const t of rawTrades) {
+    const delta = t.kind === "Bought" ? t.shareAmount : -t.shareAmount;
+    if (t.outcome === 1) qYes += delta;
+    else qNo += delta;
+    history.push({ t: t.timestamp, priceYes: lmsrPrice(qNo, qYes, b, 1), block: t.block });
+    trades.push(normalizeTrade(t));
+  }
+
+  return { history, trades };
+}
+
+function normalizeTrade(t: MockTrade): TradeRecord {
+  return {
+    kind: t.kind,
+    trader: t.trader,
+    outcome: t.outcome,
+    shareAmount: t.shareAmount,
+    cost: t.cost,
+    fee: t.fee,
+    block: t.block,
+    txHash: t.txHash,
+    timestamp: t.timestamp,
+  };
 }
 
 function byBlockThenLog(a: Log, b: Log): number {
@@ -153,7 +193,6 @@ type Decoded = {
 };
 
 function decodeLog(log: Log): Decoded | null {
-  // viem's getLogs returns decoded args when `event` is passed. We re-narrow.
   const args = (log as unknown as { args?: Record<string, unknown>; eventName?: string }).args;
   const eventName = (log as unknown as { eventName?: string }).eventName;
   if (!args) return null;
@@ -168,8 +207,6 @@ function decodeLog(log: Log): Decoded | null {
     return null;
   }
 
-  // Distinguish Bought vs Sold. If eventName isn't populated, infer from the
-  // arg shape: Bought has `cost`, Sold has `payout`.
   const kind: "Bought" | "Sold" = eventName === "Sold" || "payout" in args ? "Sold" : "Bought";
 
   return {
@@ -182,7 +219,6 @@ function decodeLog(log: Log): Decoded | null {
   };
 }
 
-/** Memoized sample for recharts: if we have many points, downsample. */
 export function useSampledHistory(history: HistoryPoint[], maxPoints = 200): HistoryPoint[] {
   return useMemo(() => {
     if (history.length <= maxPoints) return history;

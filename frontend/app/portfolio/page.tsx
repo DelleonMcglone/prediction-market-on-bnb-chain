@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { useAccount, useReadContracts } from "wagmi";
+import { useReadContracts } from "wagmi";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import type { Address } from "viem";
 import { NetworkGuard } from "@/components/NetworkGuard";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
@@ -10,22 +11,29 @@ import { PositionRow, ResolvedPositionRow, type PortfolioRow } from "@/component
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useMarkets } from "@/hooks/useMarkets";
 import { MarketAbi } from "@/lib/abis";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockMarket } from "@/lib/mockChain";
+import { useMockChainVersion } from "@/hooks/useMockChain";
 
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
   const { data: markets } = useMarkets();
   const { data: positions, isLoading } = usePortfolio(address);
+  const version = useMockChainVersion();
 
   // Read each market's `resolved` flag so we can split open vs resolved rows.
-  const { data: resolvedFlags } = useReadContracts({
+  const { data: wagmiResolvedFlags } = useReadContracts({
     allowFailure: false,
     contracts: (markets ?? []).map((m) => ({
       address: m,
       abi: MarketAbi,
       functionName: "resolved" as const,
     })),
-    query: { enabled: !!markets && markets.length > 0, staleTime: 30_000 },
+    query: { enabled: !DEMO_MODE && !!markets && markets.length > 0, staleTime: 30_000 },
   });
+  const resolvedFlags = DEMO_MODE
+    ? (void version, (markets ?? []).map((m) => mockMarket(m)?.resolved ?? false))
+    : wagmiResolvedFlags;
 
   const { openRows, resolvedRows } = useMemo(() => {
     const open: PortfolioRow[] = [];

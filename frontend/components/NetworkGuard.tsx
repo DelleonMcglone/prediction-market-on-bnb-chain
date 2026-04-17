@@ -1,6 +1,7 @@
 "use client";
 
-import { useAccount, useSwitchChain } from "wagmi";
+import { useSwitchChain } from "wagmi";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { CHAIN_ID } from "@/lib/contracts";

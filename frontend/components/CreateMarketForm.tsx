@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { erc20Abi, parseUnits } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { parseUnits } from "viem";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
+import { useUsdcBalance } from "@/hooks/useUsdcBalance";
+import { useAllowance } from "@/hooks/useAllowance";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -65,21 +67,8 @@ export function CreateMarketForm() {
     }
   }, [input.subsidy]);
 
-  const { data: usdcBalance } = useReadContract({
-    address: addresses.mockUSDC,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 10_000 },
-  });
-
-  const { data: factoryAllowance } = useReadContract({
-    address: addresses.mockUSDC,
-    abi: erc20Abi,
-    functionName: "allowance",
-    args: address ? [address, addresses.marketFactory] : undefined,
-    query: { enabled: !!address, refetchInterval: 10_000 },
-  });
+  const { data: usdcBalance } = useUsdcBalance(address);
+  const { data: factoryAllowance } = useAllowance(addresses.mockUSDC, address, addresses.marketFactory);
 
   const needsMint = (usdcBalance ?? 0n) < subsidyUnits;
   const needsApproval = !needsMint && (factoryAllowance ?? 0n) < subsidyUnits;

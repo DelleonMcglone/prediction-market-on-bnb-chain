@@ -4,23 +4,34 @@ import { useReadContract } from "wagmi";
 import { keccak256, toBytes, type Address } from "viem";
 import { MarketFactoryAbi } from "@/lib/abis";
 import { addresses, isDeployed } from "@/lib/contracts";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockIsOperator } from "@/lib/mockChain";
 
 const OPERATOR_ROLE = keccak256(toBytes("OPERATOR_ROLE"));
 
 /**
- * Returns true iff `address` holds OPERATOR_ROLE on the MarketFactory.
- * The chain is the source of truth; this is a UI convenience check only —
- * on-chain gating enforces the real access control.
+ * In demo mode, the visitor is the operator — they can exercise the admin
+ * panel. Otherwise, checks OPERATOR_ROLE on the MarketFactory.
  */
 export function useIsOperator(address: Address | undefined) {
-  return useReadContract({
+  const wagmiQuery = useReadContract({
     address: addresses.marketFactory,
     abi: MarketFactoryAbi,
     functionName: "hasRole",
     args: address ? [OPERATOR_ROLE, address] : undefined,
     query: {
-      enabled: isDeployed && !!address,
+      enabled: !DEMO_MODE && isDeployed && !!address,
       staleTime: 30_000,
     },
   });
+
+  if (DEMO_MODE) {
+    return {
+      data: address ? mockIsOperator(address) : false,
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  return wagmiQuery;
 }

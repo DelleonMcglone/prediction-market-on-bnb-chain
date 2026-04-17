@@ -1,11 +1,15 @@
 "use client";
 
-import { useAccount, useReadContract } from "wagmi";
+import { useReadContract } from "wagmi";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { useDrip } from "@/hooks/useTrade";
 import { DispenserAbi } from "@/lib/abis";
 import { addresses } from "@/lib/contracts";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockServed } from "@/lib/mockChain";
+import { useMockChainVersion } from "@/hooks/useMockChain";
 
 export function DispenserModal({
   open,
@@ -16,14 +20,19 @@ export function DispenserModal({
 }) {
   const { address, isConnected } = useAccount();
   const { drip, isPending, isConfirming } = useDrip();
+  const version = useMockChainVersion();
 
-  const { data: alreadyServed } = useReadContract({
+  const { data: wagmiServed } = useReadContract({
     address: addresses.dispenser,
     abi: DispenserAbi,
     functionName: "served",
     args: address ? [address] : undefined,
-    query: { enabled: !!address && open },
+    query: { enabled: !DEMO_MODE && !!address && open },
   });
+
+  const alreadyServed = DEMO_MODE
+    ? (void version, address ? mockServed(address) : false)
+    : wagmiServed;
 
   const busy = isPending || isConfirming;
 

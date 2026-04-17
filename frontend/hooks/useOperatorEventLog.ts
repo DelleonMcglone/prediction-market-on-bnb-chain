@@ -4,6 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem, type Address } from "viem";
 import { addresses, deployedBlock, isDeployed } from "@/lib/contracts";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockOperatorEvents } from "@/lib/mockChain";
+import { useMockChainVersion } from "./useMockChain";
 
 export type OperatorEvent = {
   kind: "MarketCreated" | "OutcomeSubmitted" | "Finalized" | "Dripped" | "Withdrawn";
@@ -34,10 +37,11 @@ const WITHDRAWN = parseAbiItem(
  */
 export function useOperatorEventLog(limit = 20) {
   const client = usePublicClient();
+  const version = useMockChainVersion();
 
-  return useQuery({
+  const wagmiQuery = useQuery({
     queryKey: ["operator-event-log", limit, addresses.marketFactory],
-    enabled: !!client && isDeployed,
+    enabled: !DEMO_MODE && !!client && isDeployed,
     staleTime: 15_000,
     refetchInterval: 20_000,
     queryFn: async (): Promise<OperatorEvent[]> => {
@@ -152,6 +156,21 @@ export function useOperatorEventLog(limit = 20) {
       return decoded.slice(0, limit);
     },
   });
+
+  if (DEMO_MODE) {
+    void version;
+    const events: OperatorEvent[] = mockOperatorEvents().slice(0, limit).map((e) => ({
+      kind: e.kind,
+      txHash: e.txHash,
+      block: 0n,
+      timestamp: e.timestamp,
+      summary: e.summary,
+      market: e.market,
+    }));
+    return { data: events, isLoading: false, error: null };
+  }
+
+  return wagmiQuery;
 }
 
 function truncate(s: string, n: number): string {

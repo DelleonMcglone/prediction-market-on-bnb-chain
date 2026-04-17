@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useAccount } from "wagmi";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import { useIsOperator } from "@/hooks/useIsOperator";
 import { ConnectButton } from "@/components/ConnectButton";
 import { cn } from "@/lib/cn";

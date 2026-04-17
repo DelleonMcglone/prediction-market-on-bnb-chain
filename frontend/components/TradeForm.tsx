@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { erc20Abi, parseUnits, type Address } from "viem";
-import { useAccount, useReadContract } from "wagmi";
+import { parseUnits } from "viem";
+import { useDemoAccount as useAccount } from "@/hooks/useDemoAccount";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,7 +14,7 @@ import { useBuyPreview, useSellPreview, applySlippage } from "@/hooks/usePreview
 import { useApprove, useBuy, useSell } from "@/hooks/useTrade";
 import { useAllowance } from "@/hooks/useAllowance";
 import { useSlippage } from "@/hooks/useSlippage";
-import { SharesAbi } from "@/lib/abis";
+import { useUsdcBalance, useSharesBalance } from "@/hooks/useUsdcBalance";
 
 type Mode = "buy" | "sell";
 
@@ -43,22 +43,8 @@ export function TradeForm({
 
   // ----- Reads -----
 
-  const { data: usdcBalance } = useReadContract({
-    address: addresses.mockUSDC,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 10_000 },
-  });
-
-  const { data: shareBalance } = useReadContract({
-    address: addresses.shares,
-    abi: SharesAbi,
-    functionName: "balanceOf",
-    args: address ? [address, encodeId(market.address, outcome)] : undefined,
-    query: { enabled: !!address, refetchInterval: 10_000 },
-  });
-
+  const { data: usdcBalance } = useUsdcBalance(address);
+  const { data: shareBalance } = useSharesBalance(market.address, address, outcome);
   const { data: allowance } = useAllowance(addresses.mockUSDC, address, market.address);
 
   const buyPreview = useBuyPreview(
@@ -380,8 +366,4 @@ function parseShares(raw: string): bigint {
   } catch {
     return 0n;
   }
-}
-
-function encodeId(market: Address, outcome: 0 | 1): bigint {
-  return (BigInt(market) << 1n) | BigInt(outcome);
 }

@@ -6,6 +6,9 @@ import { erc20Abi } from "viem";
 import { useMarkets } from "./useMarkets";
 import { MarketAbi } from "@/lib/abis";
 import { addresses, isDeployed } from "@/lib/contracts";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockMarket, mockDispenserBalance } from "@/lib/mockChain";
+import { useMockChainVersion } from "./useMockChain";
 
 export type AdminStats = {
   totalMarkets: number;
@@ -16,13 +19,9 @@ export type AdminStats = {
   dispenserUsdc: bigint;
 };
 
-/**
- * Aggregate counts for the admin overview card. Batches the per-market
- * `paused` / `resolved` reads via multicall when available (public testnet),
- * falls back to individual eth_calls on Anvil.
- */
 export function useAdminStats(): { data: AdminStats | undefined; isLoading: boolean } {
   const { data: markets, isLoading: loadingMarkets } = useMarkets();
+  const version = useMockChainVersion();
 
   const { data: flags, isLoading: loadingFlags } = useReadContracts({
     allowFailure: false,
@@ -31,7 +30,7 @@ export function useAdminStats(): { data: AdminStats | undefined; isLoading: bool
       { address: m, abi: MarketAbi, functionName: "resolved" as const },
     ]),
     query: {
-      enabled: !!markets && markets.length > 0,
+      enabled: !DEMO_MODE && !!markets && markets.length > 0,
       refetchInterval: 15_000,
       staleTime: 10_000,
     },
@@ -39,7 +38,7 @@ export function useAdminStats(): { data: AdminStats | undefined; isLoading: bool
 
   const { data: bnbBal } = useBalance({
     address: addresses.dispenser,
-    query: { enabled: isDeployed, refetchInterval: 15_000 },
+    query: { enabled: !DEMO_MODE && isDeployed, refetchInterval: 15_000 },
   });
 
   const { data: usdcBal } = useReadContracts({
@@ -52,11 +51,34 @@ export function useAdminStats(): { data: AdminStats | undefined; isLoading: bool
         args: [addresses.dispenser] as const,
       },
     ],
-    query: { enabled: isDeployed, refetchInterval: 15_000 },
+    query: { enabled: !DEMO_MODE && isDeployed, refetchInterval: 15_000 },
   });
 
   const data = useMemo<AdminStats | undefined>(() => {
     if (!markets) return undefined;
+
+    if (DEMO_MODE) {
+      void version;
+      let active = 0;
+      let paused = 0;
+      let resolved = 0;
+      for (const addr of markets) {
+        const m = mockMarket(addr);
+        if (!m) continue;
+        if (m.resolved) resolved++;
+        else if (m.paused) paused++;
+        else active++;
+      }
+      return {
+        totalMarkets: markets.length,
+        activeMarkets: active,
+        pausedMarkets: paused,
+        resolvedMarkets: resolved,
+        dispenserBnb: mockDispenserBalance(),
+        dispenserUsdc: 0n,
+      };
+    }
+
     let active = 0;
     let paused = 0;
     let resolved = 0;
@@ -75,7 +97,7 @@ export function useAdminStats(): { data: AdminStats | undefined; isLoading: bool
       dispenserBnb: bnbBal?.value ?? 0n,
       dispenserUsdc: (usdcBal?.[0] as bigint | undefined) ?? 0n,
     };
-  }, [markets, flags, bnbBal, usdcBal]);
+  }, [markets, flags, bnbBal, usdcBal, version]);
 
-  return { data, isLoading: loadingMarkets || loadingFlags };
+  return { data, isLoading: DEMO_MODE ? false : loadingMarkets || loadingFlags };
 }

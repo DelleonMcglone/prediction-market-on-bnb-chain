@@ -8,6 +8,7 @@ import { MarketCard } from "@/components/MarketCard";
 import { DispenserModal } from "@/components/DispenserModal";
 import { useMarkets } from "@/hooks/useMarkets";
 import { isDeployed } from "@/lib/contracts";
+import { DEMO_MODE } from "@/lib/demoMode";
 
 export default function HomePage() {
   const { data: marketAddresses, isLoading } = useMarkets();
@@ -48,6 +49,23 @@ export default function HomePage() {
 }
 
 function TestnetBanner({ onGetFunds }: { onGetFunds: () => void }) {
+  if (DEMO_MODE) {
+    return (
+      <div className="mt-6 rounded-md border border-accent/30 bg-accent/10 px-4 py-3 text-sm flex items-start gap-3">
+        <Badge variant="warn">Demo</Badge>
+        <div className="flex-1">
+          <p className="text-fg">
+            Standalone demo &mdash; no wallet, no chain, no real money.
+          </p>
+          <p className="text-muted text-xs mt-1">
+            You&apos;re pre-connected as a demo visitor with $1,000 mUSDC. Trade any market,
+            create new ones from <code>/admin</code>, and resolve markets in seconds
+            (dispute window is accelerated for the demo). State persists in your browser.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="mt-6 rounded-md border border-accent/30 bg-accent/10 px-4 py-3 text-sm flex items-start gap-3">
       <Badge variant="warn">Testnet</Badge>

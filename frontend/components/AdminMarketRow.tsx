@@ -14,6 +14,9 @@ import { ResolutionAbi } from "@/lib/abis";
 import { addresses } from "@/lib/contracts";
 import { formatPricePercent } from "@/lib/format";
 import { truncateAddress } from "@/lib/explorer";
+import { DEMO_MODE } from "@/lib/demoMode";
+import { mockResolutionOf } from "@/lib/mockChain";
+import { useMockChainVersion } from "@/hooks/useMockChain";
 
 /**
  * Resolution status enum from Resolution.sol (0=Unresolved, 1=Proposed, 2=Finalized).
@@ -25,13 +28,20 @@ const STATUS_FINALIZED = 2;
 export function AdminMarketRow({ market }: { market: Address }) {
   const { data, isLoading } = useMarketData(market);
 
-  const { data: resolutionTuple } = useReadContract({
+  const version = useMockChainVersion();
+  const { data: wagmiResolution } = useReadContract({
     address: addresses.resolution,
     abi: ResolutionAbi,
     functionName: "resolutionOf",
     args: [market],
-    query: { refetchInterval: 5_000 },
+    query: { enabled: !DEMO_MODE, refetchInterval: 5_000 },
   });
+  const resolutionTuple = DEMO_MODE
+    ? (void version, (() => {
+        const r = mockResolutionOf(market);
+        return [r.status, r.proposedOutcome, BigInt(r.disputeEndsAt)] as const;
+      })())
+    : wagmiResolution;
 
   const [, setTick] = useState(0);
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, type Address } from "viem";
@@ -9,30 +9,39 @@ import { addresses } from "@/lib/contracts";
 import { txUrl } from "@/lib/explorer";
 import { useToast } from "@/components/ui/Toast";
 import { decodeError } from "@/lib/decodeError";
+import { DEMO_MODE, DEMO_WALLET_ADDRESS } from "@/lib/demoMode";
+import {
+  mockApprove,
+  mockBuy,
+  mockSell,
+  mockClaim,
+  mockDrip,
+  MOCK_ADDRESSES,
+} from "@/lib/mockChain";
 
 type TxKind = "approve" | "buy" | "sell" | "claim" | "drip";
 
 type Options = {
-  /** Human-readable confirmation message, e.g. "Bought 10 YES for $5.50". */
   successTitle?: string;
-  /** Called with the tx hash after the wallet returns. */
   onSubmitted?: (hash: `0x${string}`) => void;
-  /** Called after the tx is mined successfully. */
   onConfirmed?: (hash: `0x${string}`) => void;
 };
 
 /**
  * Low-level hook used by buy / sell / claim / drip. Wraps wagmi's
  * writeContract + waitForTransactionReceipt with toast + cache invalidation.
+ * In demo mode, callers invoke the appropriate mock function directly; this
+ * hook exposes the same shape so component code stays identical.
  */
 function useWriteTx(kind: TxKind) {
-  const { writeContractAsync, data: hash, isPending, reset } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending: wagmiPending, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess, error: waitError } = useWaitForTransactionReceipt({
     hash,
-    query: { enabled: !!hash },
+    query: { enabled: !DEMO_MODE && !!hash },
   });
   const toast = useToast();
   const qc = useQueryClient();
+  const [demoPending, setDemoPending] = useState(false);
 
   const run = useCallback(
     async (args: Parameters<typeof writeContractAsync>[0], opts?: Options) => {
@@ -68,28 +77,71 @@ function useWriteTx(kind: TxKind) {
     [writeContractAsync, kind, toast],
   );
 
-  // Invalidate affected caches once the tx is mined.
-  if (isSuccess && hash) {
+  /** Demo-mode equivalent of `run`. Takes a thunk that resolves to a hash. */
+  const runDemo = useCallback(
+    async (tx: () => Promise<`0x${string}`>, successTitle?: string) => {
+      setDemoPending(true);
+      const submittingId = toast.push({
+        title: "Transaction submitted…",
+        description: "Demo mode — simulated confirmation.",
+        variant: "info",
+        persistent: true,
+      });
+      try {
+        const h = await tx();
+        toast.dismiss(submittingId);
+        toast.push({
+          title: successTitle ?? `${kind} confirmed`,
+          description: "Demo transaction mined.",
+          variant: "success",
+        });
+        qc.invalidateQueries();
+        return h;
+      } catch (err) {
+        toast.dismiss(submittingId);
+        toast.push({
+          title: `${kind} failed`,
+          description: decodeError(err),
+          variant: "error",
+          persistent: true,
+        });
+        throw err;
+      } finally {
+        setDemoPending(false);
+      }
+    },
+    [kind, toast, qc],
+  );
+
+  if (!DEMO_MODE && isSuccess && hash) {
     qc.invalidateQueries();
   }
 
   return {
     run,
+    runDemo,
     hash,
-    isPending,
-    isConfirming,
+    isPending: DEMO_MODE ? demoPending : wagmiPending,
+    isConfirming: DEMO_MODE ? false : isConfirming,
     isSuccess,
     waitError,
     reset,
   };
 }
 
-/** Approve the market contract to spend the caller's USDC. Max-approval. */
+// ---------- Public hooks ----------
+
 export function useApprove(market: Address | undefined) {
-  const { run, ...rest } = useWriteTx("approve");
+  const { run, runDemo, ...rest } = useWriteTx("approve");
   return {
-    approve: () =>
-      run(
+    approve: () => {
+      if (DEMO_MODE) {
+        return runDemo(
+          () => mockApprove(DEMO_WALLET_ADDRESS, market!, 2n ** 256n - 1n),
+          "Approval confirmed",
+        );
+      }
+      return run(
         {
           address: addresses.mockUSDC,
           abi: erc20Abi,
@@ -97,17 +149,23 @@ export function useApprove(market: Address | undefined) {
           args: [market!, 2n ** 256n - 1n],
         },
         { successTitle: "Approval confirmed" },
-      ),
+      );
+    },
     ...rest,
   };
 }
 
-/** Buy shares on a market. */
 export function useBuy(market: Address | undefined) {
-  const { run, ...rest } = useWriteTx("buy");
+  const { run, runDemo, ...rest } = useWriteTx("buy");
   return {
-    buy: (outcome: 0 | 1, shareAmount: bigint, maxCost: bigint, successTitle?: string) =>
-      run(
+    buy: (outcome: 0 | 1, shareAmount: bigint, maxCost: bigint, successTitle?: string) => {
+      if (DEMO_MODE) {
+        return runDemo(
+          () => mockBuy(market!, DEMO_WALLET_ADDRESS, outcome, shareAmount, maxCost),
+          successTitle,
+        );
+      }
+      return run(
         {
           address: market!,
           abi: MarketAbi,
@@ -115,17 +173,23 @@ export function useBuy(market: Address | undefined) {
           args: [outcome, shareAmount, maxCost],
         },
         { successTitle },
-      ),
+      );
+    },
     ...rest,
   };
 }
 
-/** Sell shares on a market. */
 export function useSell(market: Address | undefined) {
-  const { run, ...rest } = useWriteTx("sell");
+  const { run, runDemo, ...rest } = useWriteTx("sell");
   return {
-    sell: (outcome: 0 | 1, shareAmount: bigint, minPayout: bigint, successTitle?: string) =>
-      run(
+    sell: (outcome: 0 | 1, shareAmount: bigint, minPayout: bigint, successTitle?: string) => {
+      if (DEMO_MODE) {
+        return runDemo(
+          () => mockSell(market!, DEMO_WALLET_ADDRESS, outcome, shareAmount, minPayout),
+          successTitle,
+        );
+      }
+      return run(
         {
           address: market!,
           abi: MarketAbi,
@@ -133,17 +197,23 @@ export function useSell(market: Address | undefined) {
           args: [outcome, shareAmount, minPayout],
         },
         { successTitle },
-      ),
+      );
+    },
     ...rest,
   };
 }
 
-/** Claim winnings on a resolved market via the Resolution contract. */
 export function useClaim() {
-  const { run, ...rest } = useWriteTx("claim");
+  const { run, runDemo, ...rest } = useWriteTx("claim");
   return {
-    claim: (market: Address) =>
-      run(
+    claim: (market: Address) => {
+      if (DEMO_MODE) {
+        return runDemo(async () => {
+          const result = await mockClaim(market, DEMO_WALLET_ADDRESS);
+          return result.hash;
+        }, "Claim confirmed");
+      }
+      return run(
         {
           address: addresses.resolution,
           abi: ResolutionAbi,
@@ -151,24 +221,31 @@ export function useClaim() {
           args: [market],
         },
         { successTitle: "Claim confirmed" },
-      ),
+      );
+    },
     ...rest,
   };
 }
 
-/** Drip MockUSDC + tBNB to the caller from the Dispenser. */
 export function useDrip() {
-  const { run, ...rest } = useWriteTx("drip");
+  const { run, runDemo, ...rest } = useWriteTx("drip");
   return {
-    drip: () =>
-      run(
+    drip: () => {
+      if (DEMO_MODE) {
+        return runDemo(() => mockDrip(DEMO_WALLET_ADDRESS), "Test funds received");
+      }
+      return run(
         {
           address: addresses.dispenser,
           abi: DispenserAbi,
           functionName: "drip",
         },
         { successTitle: "Test funds received" },
-      ),
+      );
+    },
     ...rest,
   };
 }
+
+// Expose mock addresses for components that need to reference them visually.
+export { MOCK_ADDRESSES };
