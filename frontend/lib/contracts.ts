@@ -4,7 +4,10 @@
  * Reads from the committed deployment artifact. Until Phase 03 lands real addresses,
  * the fields are zero and read hooks no-op.
  */
-import deployment from "../../deployments/bnbTestnet.json" with { type: "json" };
+// Frontend-local copy of the testnet deployment artifact so Vercel builds with
+// rootDirectory=frontend don't need to pull files from outside the root.
+// After a new testnet deploy, copy deployments/bnbTestnet.json → lib/deployment.json.
+import deployment from "./deployment.json" with { type: "json" };
 import type { Address } from "viem";
 import { DEMO_MODE } from "./demoMode";
 import { MOCK_ADDRESSES } from "./mockChain";

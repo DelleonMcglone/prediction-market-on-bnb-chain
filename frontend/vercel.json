@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install --legacy-peer-deps --no-audit --no-fund",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ':(exclude)contracts/' ':(exclude)docs/'"
+}

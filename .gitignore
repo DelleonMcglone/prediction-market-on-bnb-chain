@@ -42,3 +42,4 @@ keystores/
 
 # Claude Code / Claude Preview local settings
 .claude/settings.local.json
+.vercel
