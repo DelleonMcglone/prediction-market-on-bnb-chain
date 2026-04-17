@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Address } from "viem";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ClaimButton } from "@/components/ClaimButton";
 import { useMarketData } from "@/hooks/useMarketData";
 import { formatShares, formatUsdc } from "@/lib/format";
 import { truncateAddress } from "@/lib/explorer";
@@ -74,6 +75,7 @@ export function ResolvedPositionRow({ row }: { row: PortfolioRow }) {
   const won = market.winningOutcome === row.outcome;
   // Winning share → 1 USDC payout. Shares are 18-dec, USDC is 6-dec.
   const payout = won ? row.shares / 10n ** 12n : 0n;
+  const claimed = row.shares === 0n;
 
   return (
     <tr className="border-t border-white/5">
@@ -95,7 +97,16 @@ export function ResolvedPositionRow({ row }: { row: PortfolioRow }) {
           {won ? "Won" : "Lost"}
         </span>
       </td>
-      <td className="py-3 tabular-nums text-right">{won ? formatUsdc(payout) : "—"}</td>
+      <td className="py-3 text-right">
+        {won ? (
+          <div className="flex items-center justify-end gap-3">
+            <span className="tabular-nums">{formatUsdc(payout)}</span>
+            <ClaimButton market={row.market} payout={payout} claimed={claimed} />
+          </div>
+        ) : (
+          <span className="text-muted">—</span>
+        )}
+      </td>
     </tr>
   );
 }

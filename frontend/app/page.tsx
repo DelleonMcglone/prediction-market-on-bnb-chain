@@ -1,18 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { MarketCard } from "@/components/MarketCard";
+import { DispenserModal } from "@/components/DispenserModal";
 import { useMarkets } from "@/hooks/useMarkets";
 import { isDeployed } from "@/lib/contracts";
 
 export default function HomePage() {
   const { data: marketAddresses, isLoading } = useMarkets();
+  const [dispenserOpen, setDispenserOpen] = useState(false);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      <TestnetBanner />
+      <TestnetBanner onGetFunds={() => setDispenserOpen(true)} />
+      <DispenserModal open={dispenserOpen} onClose={() => setDispenserOpen(false)} />
 
       <section className="my-8">
         <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
@@ -43,7 +47,7 @@ export default function HomePage() {
   );
 }
 
-function TestnetBanner() {
+function TestnetBanner({ onGetFunds }: { onGetFunds: () => void }) {
   return (
     <div className="mt-6 rounded-md border border-accent/30 bg-accent/10 px-4 py-3 text-sm flex items-start gap-3">
       <Badge variant="warn">Testnet</Badge>
@@ -52,8 +56,15 @@ function TestnetBanner() {
           This is a BNB testnet demo &mdash; no real money.
         </p>
         <p className="text-muted text-xs mt-1">
-          Need test funds? Click &quot;Get test funds&quot; in the trade UI (Phase 06
-          wires this up) or use the{" "}
+          Need test funds?{" "}
+          <button
+            type="button"
+            onClick={onGetFunds}
+            className="text-accent underline hover:text-fg transition-colors"
+          >
+            Get test funds
+          </button>{" "}
+          (drips mUSDC + a tiny bit of tBNB), or use the{" "}
           <a
             href="https://faucet.quicknode.com/binance-smart-chain/bnb-testnet"
             target="_blank"
@@ -61,8 +72,8 @@ function TestnetBanner() {
             className="text-accent underline"
           >
             QuickNode faucet
-          </a>
-          .
+          </a>{" "}
+          for more tBNB.
         </p>
       </div>
     </div>

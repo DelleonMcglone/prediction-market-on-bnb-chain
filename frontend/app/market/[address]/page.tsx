@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import type { Address } from "viem";
 import { NetworkGuard } from "@/components/NetworkGuard";
@@ -11,6 +11,8 @@ import { PriceDisplay } from "@/components/PriceDisplay";
 import { PriceChart } from "@/components/PriceChart";
 import { MarketMetadata } from "@/components/MarketMetadata";
 import { TradeHistory } from "@/components/TradeHistory";
+import { TradeForm } from "@/components/TradeForm";
+import { DispenserModal } from "@/components/DispenserModal";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useMarketHistory, useSampledHistory } from "@/hooks/useMarketHistory";
 import { formatPricePercent } from "@/lib/format";
@@ -26,6 +28,7 @@ export default function MarketPage({
   const { data, isLoading, error } = useMarketData(address);
   const { data: historyData } = useMarketHistory(address);
   const sampled = useSampledHistory(historyData?.history ?? []);
+  const [dispenserOpen, setDispenserOpen] = useState(false);
 
   return (
     <NetworkGuard>
@@ -65,15 +68,11 @@ export default function MarketPage({
                 <TradeHistory trades={historyData?.trades ?? []} />
               </div>
               <aside className="space-y-6">
+                <TradeForm market={data} onRequestFunds={() => setDispenserOpen(true)} />
                 <MarketMetadata data={data} />
-                <Card>
-                  <CardTitle>Trade</CardTitle>
-                  <p className="text-sm text-muted mt-2">
-                    Buy / sell / claim land in Phase 06.
-                  </p>
-                </Card>
               </aside>
             </div>
+            <DispenserModal open={dispenserOpen} onClose={() => setDispenserOpen(false)} />
           </>
         ) : null}
       </div>
