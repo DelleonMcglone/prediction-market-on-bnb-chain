@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { encodeErrorResult, BaseError, ContractFunctionRevertedError } from "viem";
+import { encodeErrorResult, BaseError, ContractFunctionRevertedError, type Abi } from "viem";
 import { decodeError } from "./decodeError";
 import { MarketAbi, ResolutionAbi, DispenserAbi } from "@/lib/abis";
 
-function makeRevert(abi: typeof MarketAbi, errorName: string, args: readonly unknown[]) {
-  const data = encodeErrorResult({ abi, errorName, args });
+function makeRevert(abi: Abi, errorName: string, args: readonly unknown[]) {
+  // Cast through `as never`: viem's encodeErrorResult is strictly-typed against
+  // the specific ABI, but we want to reuse this helper for several ABIs.
+  const data = encodeErrorResult({ abi, errorName, args } as never);
   const reverted = new ContractFunctionRevertedError({
     abi,
     data,
