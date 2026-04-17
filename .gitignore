@@ -39,3 +39,6 @@ coverage/
 
 # Foundry keystore (never commit)
 keystores/
+
+# Claude Code / Claude Preview local settings
+.claude/settings.local.json

@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { Card, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { MarketCard } from "@/components/MarketCard";
 import { useMarkets } from "@/hooks/useMarkets";
 import { isDeployed } from "@/lib/contracts";
 
@@ -28,15 +28,7 @@ export default function HomePage() {
       {isDeployed && !isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {(marketAddresses ?? []).map((addr) => (
-            <Link key={addr} href={`/market/${addr}`}>
-              <Card className="hover:border-white/20 transition-colors cursor-pointer h-full">
-                <CardTitle className="line-clamp-2">Market</CardTitle>
-                <CardDescription className="font-mono text-xs truncate">{addr}</CardDescription>
-                <div className="mt-4 text-xs text-muted">
-                  Phase 05 fills in price, volume, resolution status.
-                </div>
-              </Card>
-            </Link>
+            <MarketCard key={addr} address={addr} />
           ))}
           {(marketAddresses ?? []).length === 0 ? (
             <Card className="md:col-span-2 lg:col-span-3 text-center py-12">

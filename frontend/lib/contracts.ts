@@ -9,6 +9,8 @@ import type { Address } from "viem";
 
 type Deployment = {
   chainId: number;
+  /** Block number at which the core contracts were deployed. */
+  deployedBlock?: number | string;
   mockUSDC?: Address;
   shares?: Address;
   resolution?: Address;
@@ -29,6 +31,13 @@ export const addresses = {
   marketFactory: d.marketFactory ?? ZERO,
   dispenser: d.dispenser ?? ZERO,
 } as const;
+
+/**
+ * Block at which contracts were deployed. Event queries use this as their
+ * `fromBlock` to avoid scanning millions of blocks on public RPCs.
+ * Defaults to 0n for local Anvil (chain starts clean).
+ */
+export const deployedBlock: bigint = d.deployedBlock ? BigInt(d.deployedBlock) : 0n;
 
 /** True once Phase 03 has committed real testnet addresses. */
 export const isDeployed: boolean =
